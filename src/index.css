@@ -109,3 +109,9 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+.data-div {
+  border: 1px solid #ccc !important;
+  padding: 10px !important;
+  margin-bottom: 10px !important
+}
