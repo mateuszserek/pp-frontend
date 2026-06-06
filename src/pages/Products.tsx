@@ -1,173 +1,156 @@
-import Product from '../dto/ProductDto'
-import Opinion from '../dto/OpinionDto'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import {
+  createProduct,
+  deleteProduct,
+  getOpinionsByProduct,
+  getProducts,
+  updateProduct,
+} from '../features/products/api/productsApi'
+import { ProductEditForm, ProductForm, ProductList, ProductOpinions } from '../features/products/components'
+import type { Opinion, Product, ProductPayload, ProductUpdatePayload } from '../features/products/types'
+
+const emptyProductForm: ProductPayload = {
+  name: '',
+  price: 0,
+  description: '',
+}
 
 export default function Products() {
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-    const [products, setProducts] = useState<Product[]>([])
-    const [isLoading, setIsLoading] = useState<Boolean>(true)
-    const [opinions, setOpinions] = useState<Opinion[]>([])
-    const [inputProductName, setInputProductName] = useState<string>("")
-    const [inputProductPrice, setInputPrice] = useState<number>(0.0)
-    const [inputProductDescription, setInputDescription] = useState<string>("")
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [editedProduct, setEditedProduct] = useState<Product | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [opinions, setOpinions] = useState<Opinion[]>([])
+  const [nextProductsQuery, setNextProductsQuery] = useState<string | null>(null)
+  const [productForm, setProductForm] = useState<ProductPayload>(emptyProductForm)
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true)
+  const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false)
+  const [isLoadingOpinions, setIsLoadingOpinions] = useState(false)
 
-    var API = "http://localhost:8080/"
-    var baseUrl = "products"
-    var opinionsUrl = "opinions"
-    let nextQuery: string | null = null
-    let nextOpinionQuery: string | null = null
-
-    useEffect(() => {
-    setIsLoading(true)
-    var url = API + baseUrl
-    if (nextQuery != null) {
-        url += nextQuery
-    }
-    fetch(url)
-    .then((res) => res.json())
-    .then((data) => {
+  useEffect(() => {
+    getProducts()
+      .then((data) => {
         setProducts(data.value)
-        nextQuery = data.nextQuery
-        setIsLoading(false)
-    })
-    .catch((error) => {
+        setNextProductsQuery(data.nextQuery)
+      })
+      .catch((error: unknown) => {
         console.error(error)
-        setIsLoading(false)
-    })
-}, [])
+        alert('Wystąpił błąd podczas ładowania produktów')
+      })
+      .finally(() => setIsLoadingProducts(false))
+  }, [])
 
-    const handleProductClick = (product: Product) => {
-        setSelectedProduct(product)
-            setIsLoading(true)
-            var url = API + opinionsUrl 
-            if (nextOpinionQuery != null) {
-                url += nextOpinionQuery
-            } else {
-                url += "?productId=" + product.id
-            }
-            fetch(url)
-            .then((res) => res.json())
-            .then((data) => {
-            console.log(data)
-            setOpinions(data.value)
-            nextOpinionQuery = data.nextQuery
-            setIsLoading(false)
-        })
-        .catch((error) => {
-            console.error(error)
-            setIsLoading(false)
-        })
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product)
+    setIsLoadingOpinions(true)
+
+    getOpinionsByProduct(product.id)
+      .then((data) => setOpinions(data.value))
+      .catch((error: unknown) => {
+        console.error(error)
+        alert('Wystąpił błąd podczas pobierania opinii')
+      })
+      .finally(() => setIsLoadingOpinions(false))
+  }
+
+  const handleDeleteClick = (product: Product) => {
+    deleteProduct(product.id)
+      .then(() => setProducts((currentProducts) => currentProducts.filter((item) => item.id !== product.id)))
+      .catch((error: unknown) => {
+        console.error(error)
+        alert('Wystąpił błąd podczas usuwania produktu')
+      })
+  }
+
+  const handleLoadMoreProducts = () => {
+    if (!nextProductsQuery) {
+      return
     }
 
-    const handleDeleteClick = (product: Product) => {
-        var url = API + baseUrl + "?id=" + product.id
-        fetch(url, { method: 'DELETE' })
-        .then(res => {
-            if (res.status == 200) {
-                setProducts(products.filter(prod => prod.id !== product.id))
-            } else {
-                alert("Wystąpił błąd")
-            }
-        })
-    }
+    setIsLoadingMoreProducts(true)
 
-    const resetInputs = () => {
-        setInputDescription("")
-        setInputPrice(0.0)
-        setInputProductName("")
-    }
+    getProducts(nextProductsQuery)
+      .then((data) => {
+        setProducts((currentProducts) => [...currentProducts, ...data.value])
+        setNextProductsQuery(data.nextQuery)
+      })
+      .catch((error: unknown) => {
+        console.error(error)
+        alert('Wystąpił błąd podczas ładowania kolejnej strony produktów')
+      })
+      .finally(() => setIsLoadingMoreProducts(false))
+  }
 
-    const addProduct = () => {
-        var url = API + baseUrl 
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                "name": inputProductName,
-                "description": inputProductDescription,
-                "price": inputProductPrice
-            }
+  const handleAddProduct = (product: ProductPayload) => {
+    createProduct(product)
+      .then((createdProduct) => {
+        setProductForm(emptyProductForm)
+        setProducts((currentProducts) => [...currentProducts, createdProduct])
+      })
+      .catch((error: unknown) => {
+        console.error(error)
+        alert('Wystąpił błąd podczas dodawania nowego produktu')
+      })
+  }
+
+  const handleUpdateProduct = (product: ProductUpdatePayload) => {
+    updateProduct(product)
+      .then((updatedProduct) => {
+        setProducts((currentProducts) =>
+          currentProducts.map((currentProduct) =>
+            currentProduct.id === updatedProduct.id ? updatedProduct : currentProduct,
+          ),
         )
-        }).then(res => {
-            if (res.status == 200) {
-                resetInputs()
-            }
-            return res.json()
-        }).then(data => {
-            console.log(data)
-            setProducts((current) => [...current, data])
-        })
-    }
+        setEditedProduct(null)
+      })
+      .catch((error: unknown) => {
+        console.error(error)
+        alert('Wystąpił błąd podczas edycji produktu')
+      })
+  }
 
+  if (selectedProduct) {
     return (
-        <div>
-        <h1>Products Page</h1>
-
-        {selectedProduct ? (
-            <div>
-                <p>{selectedProduct.name}</p>
-                <button onClick = {() => setSelectedProduct(null)}>Powrót</button>
-                {isLoading ? (
-                    <p>loading...</p>
-                ): (
-                    opinions.map((opinion: Opinion) => (
-                        <div 
-                        key = {opinion.id}
-                        className = {"data-div"}>
-                        <p>{opinion.opinion}</p>
-                        <p>{opinion.createdBy.firstName} {opinion.createdBy.lastName}</p>
-                    </div>
-                    ))
-                )}
-            </div>
-        ) : (
-            isLoading ? (
-            <p>Loading...</p>
-        ) : (
-            <div>
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '20px'
-                }}>
-                    <label>Nazwa produktu</label>
-                    <input 
-                        type = "text" 
-                        value={inputProductName} 
-                        onChange={(e) => setInputProductName(e.target.value)}>
-                    </input>
-                    <label>Cena</label>
-                    <input 
-                        type = "number" 
-                        step={'0.01'} 
-                        value = {inputProductPrice}
-                        onChange={(e) => setInputPrice(Number(e.target.value))}>
-                    </input>
-                    <label>Opis produktu</label>
-                    <input 
-                        type = "text"
-                        value = {inputProductDescription}
-                        onChange={(e) => setInputDescription(e.target.value)}>
-                    </input>
-                    <button onClick = {() => addProduct()}>Dodaj produkt</button>
-                </div>
-            {products.map((product) => (
-                <div
-                key={product.id}
-                className = {"data-div"}
-                >
-                    <h3>{product.name}</h3>
-                    <p>Price: {product.price}</p>
-                    <p>Description: {product.description}</p>
-                    <button onClick={() => handleProductClick(product)}>Opinie</button>
-                    <button onClick = {() => handleDeleteClick(product)}>Usuń produkt</button>
-                </div>
-            ))}
-            </div>
-        )
-        )}
-        </div>
+      <ProductOpinions
+        isLoading={isLoadingOpinions}
+        opinions={opinions}
+        product={selectedProduct}
+        onBack={() => setSelectedProduct(null)}
+      />
     )
+  }
+
+  if (editedProduct) {
+    return (
+      <ProductEditForm
+        product={editedProduct}
+        onCancel={() => setEditedProduct(null)}
+        onSubmit={handleUpdateProduct}
+      />
+    )
+  }
+
+  return (
+    <div>
+      <h1>Products Page</h1>
+
+      {isLoadingProducts ? (
+        <p>Loading...</p>
+      ) : (
+        <div className="flex-center">
+          <ProductForm product={productForm} onChange={setProductForm} onSubmit={handleAddProduct} />
+          <ProductList
+            products={products}
+            onDelete={handleDeleteClick}
+            onEdit={setEditedProduct}
+            onShowOpinions={handleProductClick}
+          />
+          {nextProductsQuery && (
+            <button type="button" onClick={handleLoadMoreProducts} disabled={isLoadingMoreProducts}>
+              {isLoadingMoreProducts ? 'Loading...' : 'Load more'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }

@@ -113,5 +113,31 @@ code {
 .data-div {
   border: 1px solid #ccc !important;
   padding: 10px !important;
-  margin-bottom: 10px !important
+  margin-bottom: 10px !important;
+  width: 100%;
+}
+
+.input-area {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  width: 50% !important;
+}
+
+.input-area input {
+  margin-bottom: 12px;
+}
+
+.form-error {
+  color: #dc2626;
+  font-size: 14px;
+  margin: -6px 0 12px;
+  text-align: left;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
 }
